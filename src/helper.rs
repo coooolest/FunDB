@@ -5,12 +5,14 @@
 use lazy_static::lazy_static;
 use ruc::*;
 use serde::{de::DeserializeOwned, Serialize};
-use std::{borrow::Cow, cmp::Ordering, convert::TryInto, env, fmt, fs, mem, ops::Deref};
+use std::{borrow::Cow, cmp::Ordering, env, fmt, fs, ops::Deref, io::{Read, Write, Seek, SeekFrom}};
 
 lazy_static! {
+    /// Read cache directory from env variable named `FUNDB_DIR`, use `/tmp` when it's empty
     pub static ref CACHE_DIR: String = env::var("FUNDB_DIR").unwrap_or_else(|_| "/tmp".to_owned());
 }
 
+/// Try again on failure
 #[macro_export]
 macro_rules! try_twice {
     ($ops: expr) => {
@@ -21,6 +23,7 @@ macro_rules! try_twice {
     };
 }
 
+/// Generate a unique path in format `cache_dir/.funcdb/ts/file_line_column_randu32`
 #[macro_export]
 macro_rules! unique_path {
     () => {
@@ -36,6 +39,11 @@ macro_rules! unique_path {
     };
 }
 
+/// Macro rule helper for creating a new persistent Vecx from:
+/// 1. `type` and `in_mem_cnt`
+/// 2. `type` with default in_mem_cnt
+/// 3. `in_mem_cnt`
+/// 4. No parameters
 #[macro_export]
 macro_rules! new_vecx {
     ($ty: ty, $in_mem_cnt: expr) => {
@@ -52,6 +60,7 @@ macro_rules! new_vecx {
     };
 }
 
+/// Macro rule for create a custom Vecx
 #[macro_export]
 macro_rules! new_vecx_custom {
     ($ty: ty, $in_mem_cnt: expr, $is_tmp: expr) => {{
@@ -75,6 +84,11 @@ macro_rules! new_vecx_custom {
     };
 }
 
+/// Macro rule helper for creating a new persistent Mapx from:
+/// 1. `type` and `in_mem_cnt`
+/// 2. `type` with default in_mem_cnt
+/// 3. `in_mem_cnt`
+/// 4. No parameters
 #[macro_export]
 macro_rules! new_mapx {
     ($ty: ty, $in_mem_cnt: expr) => {
@@ -91,6 +105,7 @@ macro_rules! new_mapx {
     };
 }
 
+/// Macro rule for create a custom Mapx
 #[macro_export]
 macro_rules! new_mapx_custom {
     ($ty: ty, $in_mem_cnt: expr, $is_tmp: expr) => {{
@@ -152,7 +167,7 @@ where
     type Target = V;
 
     fn deref(&self) -> &Self::Target {
-        todo!()
+        self.value.deref()
     }
 }
 
@@ -161,7 +176,7 @@ where
     V: Clone + Eq + PartialEq + Serialize + DeserializeOwned + fmt::Debug,
 {
     fn eq(&self, other: &Value<'a, V>) -> bool {
-        todo!()
+        self.value.deref().eq(other.value.deref())
     }
 }
 
@@ -170,7 +185,7 @@ where
     V: Clone + Eq + PartialEq + Serialize + DeserializeOwned + fmt::Debug,
 {
     fn eq(&self, other: &V) -> bool {
-        todo!()
+        self.value.deref().eq(other)
     }
 }
 
@@ -179,7 +194,7 @@ where
     V: fmt::Debug + Clone + Eq + PartialEq + Ord + PartialOrd + Serialize + DeserializeOwned,
 {
     fn partial_cmp(&self, other: &V) -> Option<Ordering> {
-        todo!()
+        self.value.deref().partial_cmp(other)
     }
 }
 
@@ -188,7 +203,9 @@ where
     V: Clone + Eq + PartialEq + Serialize + DeserializeOwned + fmt::Debug,
 {
     fn from(v: V) -> Self {
-        todo!()
+        Self {
+            value: Cow::Owned(v)
+        }
     }
 }
 
@@ -197,7 +214,9 @@ where
     V: Clone + Eq + PartialEq + Serialize + DeserializeOwned + fmt::Debug,
 {
     fn from(v: Cow<'a, V>) -> Self {
-        todo!()
+        Self {
+            value: v
+        }
     }
 }
 
@@ -206,7 +225,7 @@ where
     V: Clone + Eq + PartialEq + Serialize + DeserializeOwned + fmt::Debug,
 {
     fn from(v: Value<'a, V>) -> Self {
-        todo!()
+        v.value
     }
 }
 
@@ -215,7 +234,10 @@ where
     V: Clone + Eq + PartialEq + Serialize + DeserializeOwned + fmt::Debug,
 {
     fn from(v: &V) -> Self {
-        todo!()
+        Self {
+            value: Cow::Owned(v.clone())
+        }
+
     }
 }
 
@@ -225,15 +247,28 @@ where
 
 #[inline(always)]
 pub(crate) fn sled_open(path: &str, is_tmp: bool) -> Result<sled::Db> {
-    todo!()
+    sled::Config::default()
+    .path(path)
+    .temporary(is_tmp)
+    .open()
+    .c(d!())
 }
 
 #[inline(always)]
 pub(crate) fn read_db_len(path: &str) -> Result<usize> {
-    todo!()
+    let mut file = fs::File::open(path).c(d!())?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).c(d!())?;
+    contents.parse::<usize>().c(d!())
 }
 
 #[inline(always)]
 pub(crate) fn write_db_len(path: &str, len: usize) -> Result<()> {
-    todo!()
+    let content = len.to_string();
+    let size = content.len();
+    let mut file = fs::File::create(path).c(d!())?;
+    file.seek(SeekFrom::Start(0)).c(d!())?;
+    file.write_all(content.as_bytes()).c(d!())?;
+    file.set_len(size as u64).c(d!())?;
+    file.sync_all().c(d!())
 }
