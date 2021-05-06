@@ -60,7 +60,7 @@ macro_rules! new_vecx {
     };
 }
 
-/// Macro rule for create a custom Vecx
+/// Macro rule for creating a custom Vecx
 #[macro_export]
 macro_rules! new_vecx_custom {
     ($ty: ty, $in_mem_cnt: expr, $is_tmp: expr) => {{
@@ -105,7 +105,7 @@ macro_rules! new_mapx {
     };
 }
 
-/// Macro rule for create a custom Mapx
+/// Macro rule for creating a custom Mapx
 #[macro_export]
 macro_rules! new_mapx_custom {
     ($ty: ty, $in_mem_cnt: expr, $is_tmp: expr) => {{
